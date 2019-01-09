@@ -4,15 +4,21 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.stereotype.Component;
 
 import java.util.Random;
 
+@Component
 @Configuration
 @ConfigurationProperties(prefix="config", ignoreUnknownFields = false)
 @PropertySource("classpath:properties/config.properties")
 public class RequestHeader {
+    // 目标网址
+    @Value("${target}")
+    private String target;
+
     @Value("${user-agents}")
-    private String userAgents;
+    private String userAgent;
 
     @Value("${host}")
     private String host;
@@ -32,15 +38,23 @@ public class RequestHeader {
     @Value("${connection}")
     private String connection;
 
-    public String getUserAgents() {
-        String[] userAgentArray = this.userAgents.split("@");
+    public String getUserAgent() {
+        String[] userAgentArray = this.userAgent.split("@");
         Random random = new Random();
         int index = random.nextInt(userAgentArray.length);
         return userAgentArray[index];
     }
 
-    public void setUserAgents(String userAgents) {
-        this.userAgents = userAgents;
+    public String getTarget() {
+        return target;
+    }
+
+    public void setTarget(String target) {
+        this.target = target;
+    }
+
+    public void setUserAgent(String userAgent) {
+        this.userAgent = userAgent;
     }
 
     public String getHost() {
