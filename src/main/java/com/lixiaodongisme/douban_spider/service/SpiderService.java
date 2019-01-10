@@ -7,22 +7,33 @@ import com.lixiaodongisme.douban_spider.constant.Constant;
 import com.lixiaodongisme.douban_spider.dao.SpiderDao;
 import com.lixiaodongisme.douban_spider.entity.Movie;
 import com.lixiaodongisme.douban_spider.util.HttpUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.message.BasicHeader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class SpiderService {
+    private static Logger log = LoggerFactory.getLogger(SpiderService.class);
+
+    // 从1分电影开始获取
+    private static final int INIT_RATE = 1;
+
+    private static final int INIT_START = 0;
+
+    private static final int PAGE_SIZE = 20;
+
+    private static List<Movie> batchList = new ArrayList<>();
+
     @Autowired
     private RequestHeader requestHeader;
 
@@ -36,34 +47,92 @@ public class SpiderService {
     *   range为分值(0-1分为无评分电影，大部分为未上映电影)
     *   start从0开始，每次递增20
     * */
-    public String spiderDouBan() {
+    public void spiderDouBan() {
+        log.info("My spider is running!!!");
+
         try {
             String target = requestHeader.getTarget();
             Map<String, String> param = new HashMap<>();
             param.put(Constant.SORT, Constant.SORT_BY_RATE);
             param.put(Constant.TAGS, "");
-            param.put(Constant.RANGE, "1,2");
-            param.put(Constant.START, String.valueOf(0));
 
-            URIBuilder requestUri = HttpUtils.getRequestUri(target, param);
-            String data = HttpUtils.get(requestUri, setHeaders());
+//            int count = 0;
+            long startTime = System.currentTimeMillis();
 
-            if (StringUtils.isNotBlank(data)) {
-                List<Movie> movieList = parseJsonToData(data);
-                movieList.stream().forEach(movie -> {
-                    spiderDao.insert(movie);
-                });
+            for (int minRate = INIT_RATE, maxRate = minRate + 1; minRate <= 9; minRate++, maxRate++) {
+//                count++;
+
+                param.put(Constant.RANGE, minRate + "," + maxRate);
+
+                log.info("target is " + target + ", sort by " + Constant.SORT +
+                        ", tags is " + Constant.TAGS + ", range is " + minRate +
+                        " to " + maxRate + "...");
+
+                int start = INIT_START;
+                boolean spiderFinish = false;
+
+                while (!spiderFinish) {
+                    boolean isLastBatch = false;
+                    param.put(Constant.START, String.valueOf(start));
+                    start += PAGE_SIZE;
+
+                    URIBuilder requestUri = HttpUtils.getRequestUri(target, param);
+                    String data = HttpUtils.get(requestUri, setHeaders());
+
+                    if (StringUtils.isNotBlank(data)) {
+                        List<Movie> movieList = parseJsonToData(data);
+                        if (movieList.size() == 0 || movieList == null) {
+                            spiderFinish = true;
+                            isLastBatch = true;
+                        }
+                        batchInsert(movieList, isLastBatch);
+                    } else {
+                        spiderFinish = true;
+                    }
+
+                    /*
+                    * 测试
+                    * */
+//                    if (start == 500) {
+//                        spiderFinish = true;
+//                    }
+                }
+
+                /*
+                * 测试
+                * */
+//                if (count == 2) {
+//                    break;
+//                }
             }
-            return data;
 
+            long endTime = System.currentTimeMillis();
+            log.info("spider cost time is " + ((endTime - startTime) / 1000) + "s");
         }
         catch(URISyntaxException e) {
             e.printStackTrace();
-            return "11";
         }
         catch(IOException e) {
             e.printStackTrace();
-            return "11";
+        }
+    }
+
+    private void batchInsert(List<Movie> movieList, boolean isLastBatch) {
+        // 对数据去重
+        Set<Movie> tempSet = new HashSet<>();
+        tempSet.addAll(movieList);
+        batchList.addAll(tempSet);
+
+        // 分批导入，每1000条数据导入一次
+        if (batchList.size() > 1000) {
+            spiderDao.insert(batchList);
+            batchList.clear();
+        }
+
+        // 导入最后一批数据
+        if (isLastBatch) {
+            spiderDao.insert(batchList);
+            batchList.clear();
         }
     }
 
@@ -84,13 +153,11 @@ public class SpiderService {
             Double rate = obj.getDouble("rate");
             if (obj.getJSONArray("directors") != null
                     && obj.getJSONArray("directors").size() > 0) {
-                String directors = obj.getJSONArray("directors").toString();
-//                directors = directors.substring(1, directors.length() - 1);
-//                directors = directors.substring(directors.length() - 2, directors.length() - 1);
+                String directors = jsonArrayToString("directors", obj);
                 movie.setDirectors(directors);
             }
             if (obj.getJSONArray("casts") != null) {
-                String casts = obj.getJSONArray("casts").toString();
+                String casts = jsonArrayToString("casts", obj);
                 movie.setCasts(casts);
             }
 
@@ -104,6 +171,13 @@ public class SpiderService {
         }
 
         return movieList;
+    }
+
+    private String jsonArrayToString(String key, JSONObject obj) {
+        String res = ArrayUtils.toString(obj.getJSONArray(key));
+        res = res.substring(1, res.length() - 1);
+        res = res.replace("\"", "");
+        return res;
     }
 
     /*
