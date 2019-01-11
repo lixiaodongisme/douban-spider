@@ -7,6 +7,7 @@ import com.lixiaodongisme.douban_spider.constant.Constant;
 import com.lixiaodongisme.douban_spider.dao.SpiderDao;
 import com.lixiaodongisme.douban_spider.entity.Movie;
 import com.lixiaodongisme.douban_spider.util.HttpUtils;
+import com.lixiaodongisme.douban_spider.util.RandomUtil;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.Header;
@@ -32,6 +33,8 @@ public class SpiderService {
 
     private static final int PAGE_SIZE = 20;
 
+    private static final int BID_LENGTH = 11;
+
     private static List<Movie> batchList = new ArrayList<>();
 
     @Autowired
@@ -47,7 +50,7 @@ public class SpiderService {
     *   range为分值(0-1分为无评分电影，大部分为未上映电影)
     *   start从0开始，每次递增20
     * */
-    public void spiderDouBan() {
+    public void spiderMovie() {
         log.info("My spider is running!!!");
 
         try {
@@ -56,11 +59,9 @@ public class SpiderService {
             param.put(Constant.SORT, Constant.SORT_BY_RATE);
             param.put(Constant.TAGS, "");
 
-//            int count = 0;
             long startTime = System.currentTimeMillis();
 
             for (int minRate = INIT_RATE, maxRate = minRate + 1; minRate <= 9; minRate++, maxRate++) {
-//                count++;
 
                 param.put(Constant.RANGE, minRate + "," + maxRate);
 
@@ -77,6 +78,7 @@ public class SpiderService {
                     start += PAGE_SIZE;
 
                     URIBuilder requestUri = HttpUtils.getRequestUri(target, param);
+
                     String data = HttpUtils.get(requestUri, setHeaders());
 
                     if (StringUtils.isNotBlank(data)) {
@@ -89,21 +91,7 @@ public class SpiderService {
                     } else {
                         spiderFinish = true;
                     }
-
-                    /*
-                    * 测试
-                    * */
-//                    if (start == 500) {
-//                        spiderFinish = true;
-//                    }
                 }
-
-                /*
-                * 测试
-                * */
-//                if (count == 2) {
-//                    break;
-//                }
             }
 
             long endTime = System.currentTimeMillis();
@@ -185,13 +173,16 @@ public class SpiderService {
      * */
     private List<Header> setHeaders() {
         List<Header> headerList = new ArrayList<Header>();
-        headerList.add(new BasicHeader("host", requestHeader.getHost()));
-        headerList.add(new BasicHeader("accept", requestHeader.getAccept()));
-        headerList.add(new BasicHeader("accept-language", requestHeader.getAcceptLanguage()));
-        headerList.add(new BasicHeader("accept-encoding", requestHeader.getAcceptEncoding()));
-        headerList.add(new BasicHeader("referer", requestHeader.getReferer()));
-        headerList.add(new BasicHeader("connection", requestHeader.getConnection()));
-        headerList.add(new BasicHeader("user-agents", requestHeader.getUserAgent()));
+        headerList.add(new BasicHeader("Host", requestHeader.getHost()));
+        headerList.add(new BasicHeader("Accept", requestHeader.getAccept()));
+        headerList.add(new BasicHeader("Accept-Language", requestHeader.getAcceptLanguage()));
+        headerList.add(new BasicHeader("Accept-Encoding", requestHeader.getAcceptEncoding()));
+        headerList.add(new BasicHeader("Referer", requestHeader.getReferer()));
+        headerList.add(new BasicHeader("Connection", requestHeader.getConnection()));
+        headerList.add(new BasicHeader("User-Agents", requestHeader.getUserAgent()));
+//        headerList.add(new BasicHeader("Cookie", "bid=" + RandomUtil.getRandomChar(BID_LENGTH)));
+//        headerList.add(new BasicHeader("Cookie", "bid=qX-qYHj6L_A"));
+
         return headerList;
     }
 }

@@ -6,13 +6,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/test")
-public class Test {
+@RequestMapping("/spider")
+public class SpiderController {
    @Autowired
    private SpiderService spiderService;
 
-   @RequestMapping("/1")
-   public void test() {
-      spiderService.spiderDouBan();
+   @RequestMapping("/spiderMovie")
+   public void spiderAllMovie() {
+      spiderService.spiderMovie();
    }
 }

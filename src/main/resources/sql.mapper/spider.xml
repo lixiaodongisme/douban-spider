@@ -4,7 +4,7 @@
 <mapper namespace="com.lixiaodongisme.douban_spider.dao.SpiderDao">
 
    <insert id="insert" parameterType="java.util.List">
-       INSERT INTO MOVIE
+       INSERT IGNORE INTO MOVIE
        (ID,TITLE,RATE,COVER,URL,DIRECTORS,CASTS)
        VALUES
        <foreach collection="list" item="movie" separator=",">
